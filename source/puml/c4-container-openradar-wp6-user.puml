@@ -1,0 +1,103 @@
+
+@startuml "c4-container-diagram"
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+
+!define osaPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-opensecurityarchitecture2-icons/master
+!include osaPuml/Common.puml
+!include osaPuml/User/all.puml
+
+!include <office/Servers/database_server>
+!include <office/Concepts/folder>
+
+'LAYOUT_TOP_DOWN()
+LAYOUT_LEFT_RIGHT()
+
+AddContainerTag("db", $sprite="database_server", $legendText="database container")
+AddContainerTag("File", $sprite="folder", $legendText="File")
+
+Person_Ext(hms1,"NMHS", "Uploading BUFR")
+SystemDb_Ext(hms1_store, "NMHS Data Store", "")
+
+Person_Ext(hms2,"NMHS", "Sending: BUFR, ODIM metadata")
+SystemDb_Ext(hms2_store, "NMHS API/Data Store", "")
+
+Person_Ext(hms3,"NMHS", "Uploading ODIM")
+SystemDb_Ext(hms3_store, "NMHS Data Store", "")
+
+System_Boundary(opera_system, "EURODEO Open Radar Data"){
+        'System_Boundary(local_oscar, "Local Radar Metadata", "?", "Descr"){
+        '    Container(radar_metadb, "Radar Metadata","CSV file",$tags=File)
+        '    Container(meta_upd, "Metadata Updater","weekly update")
+        '}
+
+        'System_Boundary(db,"European Weather Cloud"){
+            System_Boundary(ingest,"Ingestion"){
+                Container(bufr,"BUFR endpoint", "", "Incoming BUFR files")
+                Container(json,"JSON endpoint", "", "Incoming Metadata")
+                Container(odim,"ODIM endpoint", "", "Incoming ODIM files")
+                Container(ingest_api, "Open Radar Data Ingest API", "", "Handles incoming data, and creates Meta(Json).")
+                'Container(msg_gen, "Message generator", "", "-Extract, encode incoming data\n -Meta data from local RadarDb\n-make notification message")
+                ContainerQueue(mqtt, "Notification Service", "MQTT broker", "MQTT Event Queue. WIS2 real-time data sharing by a publication/subscription (PubSub) mechanism based on the Message Queuing Telemetry Transport Protocol.")
+            }
+            System_Boundary(store,"Store"){
+                ContainerDb(db_store, "Data and Metadata Store", "Metadata and indexing.",$tags="db")
+                ContainerDb(s3_store, "S3 Bucket File Store", "S3 Bucket of XX days of files.",$tags="File")
+                ContainerQueue(odata_api, "Open Radar Data API", "API", "User: request\nResponse: Metadata, includes links ")
+            }
+            'System_Boundary(log,"Logging, Monitoring"){
+            '    Container(lmar, "Logging, monitoring, alerting and reporting", "")
+            '}
+        '}    
+}
+
+Person_Ext(user1,"Customer 1", "Get S3 direct links")
+Person_Ext(user2,"User 2", "Get S3 link and NMHS DS link")
+System_Ext(user3,"AI", "Get NMHS API/DS Link")
+
+Rel(hms1,bufr,"File[BUFR]")
+Rel(hms1_store,hms1,"File[BUFR]")
+Rel(hms2,json,"Meta[Json]")
+Rel(hms2_store,hms2,"File[BUFR,ODIM]")
+Rel(hms3,odim,"File[ODIM]")
+Rel(hms3_store,hms3,"File[ODIM]")
+
+'Rel(opera_in,ingest_api,"File")
+
+Rel(bufr,ingest_api,"File[BUFR]")
+Rel(json,ingest_api,"Meta[Json]")
+Rel(odim,ingest_api,"File[ODIM]")
+
+Rel(ingest_api, db_store, "Meta[Json]")
+Rel(ingest_api, mqtt,"Meta[Json]")
+Rel(ingest_api, s3_store, "File[BUFR,ODIM]")
+'Rel(radar_metadb, msg_gen, "Metadata")
+
+'Rel(ingest_api, msg_gen, "File")
+Rel(db_store, odata_api,"Meta(Link)[Json]")
+
+'Rel(meta_upd, radar_metadb, "")
+'Rel_L(opera_radardb, meta_upd, "")
+
+'Rel(ingest,lmar,"")
+'Rel(store,lmar,"")
+
+Rel(odata_api,user1,"Meta(Link)[Json]")
+'Rel(user1,odata_api,"http request")
+'Rel(odata_api,user2,"S3 link")
+Rel(odata_api,user3,"Meta(Link)[Json]")
+
+Rel(s3_store,user1,"File[BUFR,ODIM]")
+Rel(s3_store,user2,"File[BUFR,ODIM]")
+Rel(hms2_store,user3,"File[BUFR,ODIM]")
+Rel(hms2_store,user2,"File[BUFR,ODIM]")
+
+'Rel(mqtt,subscriber,"MQTT")
+'Rel(mqtt,user1,"MQTT")
+Rel(mqtt,user2,"Meta(Link)[Json]")
+'Rel(mqtt,user3,"MQTT")
+
+
+@enduml
+
+
