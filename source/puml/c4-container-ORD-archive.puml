@@ -1,0 +1,65 @@
+@startuml "c4-container-diagram"
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+
+!define osaPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-opensecurityarchitecture2-icons/master
+!include osaPuml/Common.puml
+!include osaPuml/User/all.puml
+
+!include <office/Servers/database_server>
+!include <office/Concepts/folder>
+
+LAYOUT_TOP_DOWN()
+'LAYOUT_LEFT_RIGHT()
+
+Person_Ext(dwd,"DWD", "Uploading ODIM")
+Person_Ext(gau,"Geophere Austria", "Uploading OPERA Composite")
+
+System_Boundary(ord_24h, "Open Radar Data 24H"){
+
+    Container(ingest_24h,"Ingest API", "", "Ingest API")
+    Container(api_24h,"ORD API", "", "OpenRadarData API")
+    Container(mqtt_24h,"Rabbit MQ", "", "MQTT broadcast")
+    ContainerDb(db_store_24h, "Data and Metadata Store", "Metadata and indexing.",$tags="db")
+
+
+    ContainerDb(s3_store_24h, "S3 Bucket File Store", "24 hours",$tags="File")
+
+}
+
+Rel(dwd, ingest_24h, "ODIM volumes")
+Rel(gau, ingest_24h, "OPERA ODIM Composite ")
+Rel(ingest_24h, db_store_24h, "Meta[Json]")
+Rel(ingest_24h, s3_store_24h, "File[BUFR,ODIM]")
+Rel(api_24h, db_store_24h, "Meta[Json]")
+Rel(ingest_24h, mqtt_24h, "Meta[Json]")
+
+System_Ext(ingest24toarch, "Ingest to Archive", "")
+
+System_Boundary(ord_arch, "Open Radar Data Arvhive"){
+
+    Container(ingest_arch,"Ingest API", "", "Ingest API")
+    Container(api_arch,"ORD API", "", "OpenRadarData API")
+    Container(mqtt_arch,"Rabbit MQ", "", "MQTT broadcast")
+    ContainerDb(db_store_arch, "Data and Metadata Store", "Metadata and indexing.",$tags="db")
+
+
+    ContainerDb(s3_store_arch, "S3 Bucket File Store", "Long term archive",$tags="File")
+
+}
+
+Rel(ingest_arch, db_store_arch, "Meta[Json]")
+Rel(ingest_arch, s3_store_arch, "File[BUFR,ODIM]")
+Rel(api_arch, db_store_arch, "Meta[Json]")
+Rel(ingest_arch, mqtt_arch, "Meta[Json]")
+
+Rel(mqtt_24h, ingest24toarch, "Meta[Json]")
+Rel(ingest24toarch, ingest_arch, "Meta[Json]")
+Rel(s3_store_24h, ingest24toarch, "File[BUFR,ODIM]")
+'System_Ext(mon_24toarch, "Monitoring Archive", "")
+
+'Rel(s3_store_24h, mon_24toarch, "")
+'Rel(s3_store_arch, mon_24toarch, "")
+
+SystemDb_Ext(opera_arch, "OPERA archive", "")
+Rel(opera_arch, ingest_arch, "File[BUFR,ODIM]")
